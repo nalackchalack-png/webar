@@ -6,9 +6,111 @@
     <!-- Librerías A-Frame y AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://ar-js-org.github.io/AR.js/aframe/build/aframe-ar.js"></script>
+    
+    <style>
+      /* Panel Flotante en la Web */
+      #ui-panel {
+        position: fixed;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        width: 90%;
+        max-width: 400px;
+        background: rgba(20, 20, 25, 0.88);
+        backdrop-filter: blur(10px);
+        border: 2px solid #2ecc71; /* Contorno verde */
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: white;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      }
+
+      .ui-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .status-badge {
+        font-size: 11px;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 20px;
+        background: #27ae60;
+        color: white;
+      }
+
+      .status-badge.error {
+        background: #e74c3c;
+      }
+
+      .file-info {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #ddd;
+        word-break: break-all;
+      }
+
+      .btn-container {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .ui-btn {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        border-radius: 6px;
+        background: #2ecc71;
+        color: #111;
+        font-weight: bold;
+        font-size: 12px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      .ui-btn-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+      }
+
+      #preview-thumb {
+        display: none;
+        margin-top: 10px;
+        width: 100%;
+        max-height: 120px;
+        object-fit: contain;
+        border-radius: 6px;
+        border: 1px solid #444;
+      }
+    </style>
   </head>
   <body style="margin: 0px; overflow: hidden;">
     
+    <!-- Panel Flotante de Verificación en Servidor -->
+    <div id="ui-panel">
+      <div class="ui-header">
+        <span style="font-weight: bold; font-size: 14px;">🌐 Servidor de Imagen</span>
+        <span id="status-badge" class="status-badge">Verificando...</span>
+      </div>
+
+      <div class="file-info">
+        <strong>Nombre:</strong> <span id="file-name" style="color: #2ecc71;">Cargando...</span>
+      </div>
+
+      <img id="preview-thumb" alt="Vista previa en servidor">
+
+      <div class="btn-container">
+        <a id="btn-ver-servidor" href="#" target="_blank" class="ui-btn">🔗 Ver en Servidor</a>
+        <button id="btn-toggle-preview" class="ui-btn ui-btn-secondary" onclick="togglePreview()">👁️ Preview</button>
+      </div>
+    </div>
+
+    <!-- Escena WebAR 3D -->
     <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
       
       <a-assets>
@@ -17,7 +119,7 @@
 
       <!-- Marcador Hiro -->
       <a-marker preset="hiro">
-        <!-- Plano 3D cuya posición y escala cambian con los parámetros recibidos -->
+        <!-- Plano 3D ajustado dinámicamente -->
         <a-plane id="plano" rotation="-90 0 0" width="2" height="2" material="src: #textura; transparent: true; side: double;"></a-plane>
       </a-marker>
 
@@ -25,22 +127,62 @@
     </a-scene>
 
     <script>
-      // Obtener parámetros de la URL enviados desde la app Java
+      // Extraer parámetros de la URL
       const params = new URLSearchParams(window.location.search);
       const urlImagen = params.get('img');
       const posX = parseFloat(params.get('x')) || 0;
-      const posY = parseFloat(params.get('y')) || 1.0; // Altura por defecto sobre el marcador
+      const posY = parseFloat(params.get('y')) || 1.0;
       const posZ = parseFloat(params.get('z')) || 0;
       const escala = parseFloat(params.get('s')) || 1.0;
 
+      const badge = document.getElementById('status-badge');
+      const fileNameSpan = document.getElementById('file-name');
+      const btnVer = document.getElementById('btn-ver-servidor');
+      const previewThumb = document.getElementById('preview-thumb');
+
       if (urlImagen) {
         document.getElementById('textura').src = urlImagen;
+
+        // Extraer el nombre del archivo de la URL
+        let nombreArchivo = urlImagen.substring(urlImagen.lastIndexOf('/') + 1);
+        if (nombreArchivo.includes('?')) {
+          nombreArchivo = nombreArchivo.split('?')[0];
+        }
+        fileNameSpan.innerText = nombreArchivo;
+        btnVer.href = urlImagen;
+        previewThumb.src = urlImagen;
+
+        // Comprobar la disponibilidad real de la imagen en el servidor
+        const imgCheck = new Image();
+        imgCheck.onload = () => {
+          badge.innerText = '🟢 En Servidor';
+          badge.classList.remove('error');
+        };
+        imgCheck.onerror = () => {
+          badge.innerText = '🔴 No Encontrada';
+          badge.classList.add('error');
+        };
+        imgCheck.src = urlImagen;
+
+      } else {
+        badge.innerText = '⚠️ Sin URL';
+        badge.classList.add('error');
+        fileNameSpan.innerText = 'No se recibió el parámetro ?img=';
+        btnVer.style.display = 'none';
       }
 
-      // Aplicar posición y escala dinámica en 3D
+      // Aplicar posiciones 3D en la escena
       const plano = document.getElementById('plano');
       plano.setAttribute('position', `${posX} ${posY} ${posZ}`);
       plano.setAttribute('scale', `${escala} ${escala} ${escala}`);
+
+      function togglePreview() {
+        if (previewThumb.style.display === 'block') {
+          previewThumb.style.display = 'none';
+        } else {
+          previewThumb.style.display = 'block';
+        }
+      }
     </script>
   </body>
 </html>
