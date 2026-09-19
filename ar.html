@@ -3,7 +3,7 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Visor WebAR</title>
-    <!-- Librerías de A-Frame y AR.js -->
+    <!-- Librerías A-Frame y AR.js -->
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://ar-js-org.github.io/AR.js/aframe/build/aframe-ar.js"></script>
   </head>
@@ -11,29 +11,36 @@
     
     <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
       
-      <!-- Contenedor de la imagen -->
       <a-assets>
         <img id="textura" crossorigin="anonymous">
       </a-assets>
 
       <!-- Marcador Hiro -->
       <a-marker preset="hiro">
-        <!-- Plano 3D donde se proyecta la imagen -->
-        <a-plane id="plano" position="0 0.1 0" rotation="-90 0 0" width="2" height="2" material="src: #textura; transparent: true; side: double;"></a-plane>
+        <!-- Plano 3D cuya posición y escala cambian con los parámetros recibidos -->
+        <a-plane id="plano" rotation="-90 0 0" width="2" height="2" material="src: #textura; transparent: true; side: double;"></a-plane>
       </a-marker>
 
       <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-      // Extraer el enlace de la imagen que viene en el QR (?img=...)
+      // Obtener parámetros de la URL enviados desde la app Java
       const params = new URLSearchParams(window.location.search);
       const urlImagen = params.get('img');
+      const posX = parseFloat(params.get('x')) || 0;
+      const posY = parseFloat(params.get('y')) || 1.0; // Altura por defecto sobre el marcador
+      const posZ = parseFloat(params.get('z')) || 0;
+      const escala = parseFloat(params.get('s')) || 1.0;
 
       if (urlImagen) {
-        const imgElement = document.getElementById('textura');
-        imgElement.src = urlImagen;
+        document.getElementById('textura').src = urlImagen;
       }
+
+      // Aplicar posición y escala dinámica en 3D
+      const plano = document.getElementById('plano');
+      plano.setAttribute('position', `${posX} ${posY} ${posZ}`);
+      plano.setAttribute('scale', `${escala} ${escala} ${escala}`);
     </script>
   </body>
 </html>
